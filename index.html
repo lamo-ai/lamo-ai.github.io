@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="LaMo: Self-Supervised Latent Motion Priors for Physical Realism in Video Generation."
+    />
+    <title>LaMo: Self-Supervised Latent Motion Priors</title>
+    <link rel="icon" type="image/png" href="assets/images/lamo-favicon.png" />
+    <link rel="apple-touch-icon" href="assets/images/lamo-favicon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="top-nav" aria-label="Page sections">
+        <a class="nav-brand" href="#">LaMo</a>
+        <div class="nav-links">
+          <a href="#abstract">Abstract</a>
+          <a href="#method">Method</a>
+          <a href="#videos">Videos</a>
+          <a href="#results">Results</a>
+          <a href="#interpretability">Interpretability</a>
+          <a href="#conclusion">Conclusions</a>
+          <a href="#citation">Citation</a>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <h1>
+          <span>LaMo</span>
+          <span class="title-rest">Self-Supervised Latent Motion Priors for Physical Realism in Video Generation</span>
+        </h1>
+        <p class="authors">
+          <a href="https://scholar.google.com/citations?user=UlDxGP0AAAAJ">Bo Jiang</a><sup>1,*</sup>,
+          <a href="https://scholar.google.com/citations?user=2oYPT9IAAAAJ">Depu Meng</a><sup>1</sup>,
+          <a href="https://scholar.google.com/citations?user=lf0bLigAAAAJ">Yihan Hu</a><sup>1</sup>,
+          <a href="https://scholar.google.com/citations?user=SdX6DaEAAAAJ">Yichen Xie</a><sup>1,2,*</sup>,
+          <a href="https://scholar.google.com/citations?user=I6_dXvEAAAAJ">Tianshuo Xu</a><sup>1,*</sup>,
+          <a href="https://scholar.google.com/citations?user=xVN3UxYAAAAJ">Wei Zhan</a><sup>1,2,&dagger;</sup>
+        </p>
+        <p class="affiliations">
+          <sup>1</sup>Applied Intuition &nbsp;&nbsp; <sup>2</sup>University of California, Berkeley
+        </p>
+        <p class="author-notes">
+          <sup>*</sup>Work done during internship at Applied Intuition.
+        </p>
+        <div class="button-row">
+          <a class="button primary" href="https://arxiv.org/abs/2605.23878">Paper</a>
+          <a class="button disabled" href="#" aria-disabled="true">Code (Pending)</a>
+          <a class="button" href="#citation">BibTex</a>
+        </div>
+      </section>
+    </header>
+
+    <main>
+      <section class="section teaser" id="abstract">
+        <div class="section-heading">
+          <p class="eyebrow">Abstract</p>
+        </div>
+        <div class="tldr-panel">
+          <p class="lead">
+            Modern video generators produce visually compelling clips but still
+            struggle with physical and motion consistency, limiting their use as
+            reliable world simulators. Existing remedies often rely on external
+            simulators, teacher models, or curated physics-focused data. We
+            explore a complementary self-supervised direction: extracting motion
+            cues from the unlabeled videos already used to train video diffusion
+            models. We propose LaMo, which formulates a latent motion prior over
+            frame-to-frame latent changes conditioned on the current latent and
+            prompt. This prior is exposed through two lightweight readouts: a
+            macro motion drift used during training as a Motion Drift Loss, and a
+            learned micro motion field used during sampling as Motion Prior
+            Guidance. Both components are plug-and-play with existing video
+            diffusion backbones, requiring no architectural or I/O changes. On
+            VideoPhy and VideoPhy2, LaMo improves CogVideoX backbones and
+            outperforms recent physics-aware baselines that use external
+            supervision. On VBench, it preserves overall generation quality while
+            improving motion-related dimensions. These results suggest that
+            unlabeled video contains useful motion supervision for improving
+            physical fidelity in modern video diffusion models.
+          </p>
+        </div>
+        <figure class="paper-figure">
+          <img src="assets/images/teaser-v1.png" alt="LaMo teaser figure" />
+        </figure>
+      </section>
+
+      <section class="section" id="method">
+        <div class="section-heading">
+          <p class="eyebrow">Method</p>
+        </div>
+
+        <figure class="paper-figure method-figure">
+          <img src="assets/images/method_v2.png" alt="LaMo method overview" />
+        </figure>
+
+        <div class="method-explain">
+          <article class="method-card">
+            <h3>Motion Drift Loss</h3>
+            <p>
+              LaMo extracts a stable macro motion target from clean VAE
+              latents by spatially averaging each <span class="math">tau</span>-lag
+              latent difference into a channel-wise drift vector. During
+              fine-tuning, the denoiser's predicted clean latents match this
+              drift with a scale-normalized L2 loss, anchored on
+              <span class="math">x0_hat</span> and down-weighted when high noise
+              makes motion estimates unreliable.
+            </p>
+          </article>
+          <article class="method-card">
+            <h3>Motion Prior Guidance</h3>
+            <p>
+              LaMo complements the macro target with a prompt-conditioned CNN
+              that predicts spatial motion fields from clean latent pairs. At
+              inference, this frozen predictor defines a motion-consistency loss
+              after the CFG mix, and its gradient updates the noise prediction
+              rather than directly editing latents. Guidance is used only in the
+              lower-noise window, where predicted motion is reliable.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="videos">
+        <div class="section-heading">
+          <p class="eyebrow">Qualitative Results</p>
+        </div>
+
+        <div class="qual-grid">
+          <article class="qual-card">
+            <div class="qual-title">Milk spilling into coffee creates waves.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/0-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/0-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+          <article class="qual-card">
+            <div class="qual-title">Coin spins rapidly on a wooden table.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/1-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/1-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+          <article class="qual-card">
+            <div class="qual-title">A honey dipper drizzles honey onto Greek yogurt.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/2-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/2-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+          <article class="qual-card">
+            <div class="qual-title">An apple falls into a vat of cider, sending up a spray.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/3-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/3-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+          <article class="qual-card">
+            <div class="qual-title">A pro surfer sails smoothly on the wave-kissed waters.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/4-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/4-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+          <article class="qual-card">
+            <div class="qual-title">Tablecloth is draped over the dining table.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/5-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/5-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+          <article class="qual-card">
+            <div class="qual-title">Pouring beer into a glass, creating white foam.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/6-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/6-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+          <article class="qual-card">
+            <div class="qual-title">A mountain biker descends fast through a dirt trail.</div>
+            <div class="qual-pair">
+              <div>
+                <div class="video-label">CogVideoX-5B</div>
+                <video src="website_demo_mp4/7-1.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+              <div>
+                <div class="video-label accent">LaMo-5B</div>
+                <video src="website_demo_mp4/7-2.mp4" autoplay muted loop playsinline controls></video>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="results">
+        <div class="section-heading">
+          <p class="eyebrow">Physical Motion Fidelity</p>
+        </div>
+
+        <div class="paper-results">
+          <article class="table-card paper-table-card">
+            <h3>VideoPhy Results</h3>
+            <p class="table-caption">SA measures semantic adherence and PC measures physical commonsense.</p>
+            <div class="table-scroll">
+              <table class="paper-table videophy-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Methods</th>
+                    <th rowspan="2">Extra Supervision</th>
+                    <th colspan="2">Solid-Solid</th>
+                    <th colspan="2">Solid-Fluid</th>
+                    <th colspan="2">Fluid-Fluid</th>
+                    <th colspan="2">Overall</th>
+                  </tr>
+                  <tr>
+                    <th>SA</th><th>PC</th>
+                    <th>SA</th><th>PC</th>
+                    <th>SA</th><th>PC</th>
+                    <th>SA</th><th>PC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>CogVideoX-2B</td><td>-</td><td>49.6</td><td>13.3</td><td>71.2</td><td>28.1</td><td>60.0</td><td>50.9</td><td>60.5</td><td>25.6</td></tr>
+                  <tr><td>DreamWorld-1.3B</td><td>VGGT, DINOv2</td><td><span class="second">54.5</span></td><td><strong>24.5</strong></td><td>48.6</td><td>25.4</td><td>60.1</td><td>32.7</td><td>52.9</td><td>26.2</td></tr>
+                  <tr class="paper-muted"><td>MoAlign-2B (paper)</td><td>VideoMAE</td><td>24.7</td><td>31.7</td><td>66.9</td><td>40.7</td><td>67.3</td><td>56.4</td><td>49.3</td><td>39.4</td></tr>
+                  <tr><td>MoAlign-2B (reimpl.)</td><td>VideoMAE</td><td>54.6</td><td><span class="second">18.3</span></td><td>73.5</td><td><span class="second">31.9</span></td><td><span class="second">66.2</span></td><td><span class="second">55.7</span></td><td><span class="second">64.5</span></td><td><span class="second">30.1</span></td></tr>
+                  <tr><td>VideoREPA-2B</td><td>VideoMAEv2</td><td>52.4</td><td>18.2</td><td><strong>77.4</strong></td><td><strong>32.2</strong></td><td>60.0</td><td>52.7</td><td>64.2</td><td>29.7</td></tr>
+                  <tr class="ours"><td>LaMo-2B (Ours)</td><td>Self-supervised</td><td><strong>58.7</strong></td><td>16.8</td><td><span class="second">74.7</span></td><td><strong>32.2</strong></td><td><strong>69.1</strong></td><td><strong>67.3</strong></td><td><strong>67.2</strong></td><td><strong>31.4</strong></td></tr>
+                  <tr class="group-break"><td>CogVideoX-5B</td><td>-</td><td><strong>62.9</strong></td><td>19.6</td><td>76.0</td><td>33.6</td><td>72.7</td><td>61.8</td><td>70.0</td><td>32.3</td></tr>
+                  <tr><td>PhyT2V-5B</td><td>o1-preview</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>61</td><td>37</td></tr>
+                  <tr><td>WISA-5B</td><td>Qwen2VL</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>67</td><td>38</td></tr>
+                  <tr><td>PHANTOM-5B</td><td>V-JEPA2</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>47.5</td><td>37.9</td></tr>
+                  <tr><td>MoAlign-5B (reimpl.)</td><td>VideoMAE</td><td><span class="second">62.5</span></td><td>26.3</td><td>79.6</td><td>38.4</td><td>78.0</td><td><span class="second">76.2</span></td><td><span class="second">72.2</span></td><td>39.4</td></tr>
+                  <tr><td>VideoREPA-5B</td><td>VideoMAEv2</td><td>58.0</td><td><strong>28.0</strong></td><td><strong>82.9</strong></td><td><span class="second">39.0</span></td><td><strong>80.0</strong></td><td>74.5</td><td>72.1</td><td><span class="second">40.1</span></td></tr>
+                  <tr class="ours"><td>LaMo-5B (Ours)</td><td>Self-supervised</td><td><strong>62.9</strong></td><td><span class="second">26.6</span></td><td><span class="second">80.8</span></td><td><strong>41.1</strong></td><td><span class="second">78.2</span></td><td><strong>78.2</strong></td><td><strong>73.0</strong></td><td><strong>41.0</strong></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <div class="mini-table-grid">
+            <article class="table-card">
+              <h3>Key Component Ablation</h3>
+              <table class="paper-table compact-table">
+                <thead>
+                  <tr><th>Component</th><th>SA</th><th>PC</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Baseline</td><td>64.8</td><td>35.2</td></tr>
+                  <tr><td>+ Motion Drift Loss</td><td><span class="second">71.8</span></td><td><span class="second">39.0</span></td></tr>
+                  <tr><td>+ Motion Prior Guidance</td><td>68.9</td><td>38.4</td></tr>
+                  <tr class="ours"><td>LaMo-5B (full)</td><td><strong>73.0</strong></td><td><strong>41.0</strong></td></tr>
+                </tbody>
+              </table>
+            </article>
+
+            <article class="table-card">
+              <h3>Design Choice Ablation</h3>
+              <table class="paper-table compact-table">
+                <thead>
+                  <tr><th>Variant</th><th>SA</th><th>PC</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Dense motion loss</td><td>64.2</td><td>34.6</td></tr>
+                  <tr><td>Raw L2 motion loss</td><td>67.3</td><td>36.1</td></tr>
+                  <tr><td>Adj-frame lag (tau=1)</td><td><span class="second">68.0</span></td><td>37.5</td></tr>
+                  <tr class="group-break"><td>Direct latent edit</td><td>62.8</td><td>31.6</td></tr>
+                  <tr><td>No predictor aug.</td><td>66.4</td><td><span class="second">37.6</span></td></tr>
+                  <tr class="ours"><td>LaMo-5B (Ours)</td><td><strong>73.0</strong></td><td><strong>41.0</strong></td></tr>
+                </tbody>
+              </table>
+            </article>
+
+            <article class="table-card">
+              <h3>VideoPhy2 Results</h3>
+              <table class="paper-table compact-table">
+                <thead>
+                  <tr><th>Methods</th><th>SA</th><th>PC</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>CogVideoX-2B</td><td>21.0</td><td>68.0</td></tr>
+                  <tr><td>PHANTOM-5B</td><td>27.8</td><td>71.7</td></tr>
+                  <tr class="paper-muted"><td>MoAlign-2B (paper)</td><td>28.8</td><td>75.0</td></tr>
+                  <tr><td>MoAlign-2B (reimpl.)</td><td><span class="second">24.6</span></td><td><span class="second">73.1</span></td></tr>
+                  <tr><td>VideoREPA-2B</td><td>21.0</td><td>72.5</td></tr>
+                  <tr class="ours"><td>LaMo-2B (Ours)</td><td><strong>25.4</strong></td><td><strong>75.4</strong></td></tr>
+                </tbody>
+              </table>
+            </article>
+          </div>
+
+          <div class="section-heading results-subheading">
+            <p class="eyebrow">General Video Quality</p>
+          </div>
+
+          <article class="table-card paper-table-card">
+            <h3>VBench Results</h3>
+            <p class="table-caption">LaMo-5B improves reported quality, semantic, motion, and consistency dimensions over CogVideoX-5B.</p>
+            <div class="table-scroll">
+              <table class="paper-table vbench-table">
+              <thead>
+                  <tr>
+                    <th>Method</th>
+                    <th>Motion Smoothness</th>
+                    <th>Multiple Objects</th>
+                    <th>Object Class</th>
+                    <th>Overall Consistency</th>
+                    <th>Scene</th>
+                    <th>Spatial Relationship</th>
+                    <th>Temporal Flickering</th>
+                    <th>Quality Score</th>
+                    <th>Semantic Score</th>
+                    <th>Total Score</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr><td>CogVideoX-5B</td><td>97.6</td><td>50.4</td><td>78.7</td><td>25.0</td><td>40.3</td><td>52.3</td><td>97.3</td><td>80.5</td><td>68.7</td><td>78.2</td></tr>
+                  <tr class="ours"><td>LaMo-5B (Ours)</td><td><strong>98.2</strong></td><td><strong>51.6</strong></td><td><strong>82.0</strong></td><td><strong>25.7</strong></td><td><strong>42.6</strong></td><td><strong>62.2</strong></td><td><strong>98.4</strong></td><td><strong>81.9</strong></td><td><strong>70.7</strong></td><td><strong>79.6</strong></td></tr>
+              </tbody>
+            </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="interpretability">
+        <div class="section-heading">
+          <p class="eyebrow">Interpretability Analysis</p>
+        </div>
+
+        <div class="interp-figures">
+          <figure class="paper-figure interp-figure">
+            <img src="assets/images/interp.png" alt="Motion drift and motion field heatmap interpretability" />
+          </figure>
+          <div class="interp-spacer" style="height: 21px" aria-hidden="true"></div>
+          <figure class="paper-figure interp-figure">
+            <img src="assets/images/interp_supp.png" alt="Additional motion drift and motion field heatmap interpretability" />
+          </figure>
+        </div>
+
+        <div class="interpretability-copy">
+          <article class="method-card">
+            <h3>Motion Drift Heatmap</h3>
+            <p>
+              The drift heatmap visualizes where local latent changes align with
+              the macro drift direction supervised by Motion Drift Loss. Its
+              response concentrates on physically active regions, indicating
+              that the training-time readout captures the dominant event-level
+              motion rather than static appearance.
+            </p>
+          </article>
+          <article class="method-card">
+            <h3>Motion Field Heatmap</h3>
+            <p>
+              The field heatmap shows the spatial response of the frozen motion
+              predictor used by Motion Prior Guidance after subtracting a
+              no-motion baseline. It localizes the moving object or interaction
+              region, supporting the claim that LaMo allocates motion where the
+              physical change actually happens.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="conclusion">
+        <div class="section-heading">
+          <p class="eyebrow">Conclusions and Limitations</p>
+        </div>
+
+        <div class="conclusion-grid">
+          <article class="method-card">
+            <h3>Conclusions</h3>
+            <p>
+              LaMo extracts a self-supervised latent motion prior from ordinary
+              video and exposes it as a training-time Motion Drift Loss and
+              sampling-time Motion Prior Guidance. Without simulators, teacher
+              models, or physics annotations, it improves physical fidelity on
+              VideoPhy and VideoPhy2 while preserving general video quality on
+              VBench.
+            </p>
+          </article>
+          <article class="method-card">
+            <h3>Limitations</h3>
+            <p>
+              LaMo encourages plausible latent motion, but it is not a
+              constraint-satisfying simulator. Its gains depend on video-data
+              coverage and on current VideoPhy-style model-judged metrics, which
+              do not isolate contact, deformation, fluids, conservation, or
+              long-horizon stability.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="citation">
+        <div class="section-heading">
+          <p class="eyebrow">Citation</p>
+        </div>
+        <div class="citation-box">
+          <button class="copy-button" type="button" data-copy-target="bibtex">Copy</button>
+          <pre id="bibtex"><code>@article{jiang2026lamo,
+  title={LaMo: Self-Supervised Latent Motion Priors for Physical Realism in Video Generation},
+  author={Bo Jiang and Depu Meng and Yihan Hu and Yichen Xie and Tianshuo Xu and Wei Zhan},
+  journal={arXiv preprint arXiv:2605.23878},
+  year={2026}
+}</code></pre>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
